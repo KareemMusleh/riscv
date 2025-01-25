@@ -5,13 +5,24 @@ import glob
 import struct
 from enum import Enum
 
-regs = [0] * 33
 pc = 32
 
 MAX64 = 0xffffffffffffffff
 MAX64 = 0xffffffff
 BASE_ADDR = 0x80000000
 memory = bytearray(b'\00' * 0x8000)
+
+class Regs:
+    def __init__(self):
+        self.regs = [0] * 33
+    def __getitem__(self, key):
+        return self.regs[key]
+    def __setitem__(self, key, value):
+        if key == 0:
+            raise RuntimeError("can't set x0")
+        self.regs[key] = value & MAX64 # to prevent overflows
+
+regs = Regs()
 
 class OPCODE(Enum): # Source: search for RV32I Base Instruction Set in the unpriv spec
     LUI = 0b0110111 # Load Upper Immediate
@@ -66,7 +77,6 @@ def step():
     opcode = OPCODE(get_part(0, 6))
     rd = get_part(7, 11)
 
-    print(hex(inst), opcode)
     # imm_x is the imm for the x type of instruction
     imm_j = get_part(21, 30) << 1| get_part(20, 20) << 11 | get_part(12, 19) << 12 | get_part(30, 31)<<20
     imm_i = get_part(20, 31)
@@ -76,6 +86,7 @@ def step():
     funct3 = get_part(12, 14)
     rs1 = get_part(15, 19)
     rs2 = get_part(20, 24)
+    print(hex(regs[pc]), hex(inst), opcode, rs1)
     if opcode == OPCODE.JAL:
         regs[pc] += imm_j
         return True
